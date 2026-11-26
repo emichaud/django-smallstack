@@ -85,12 +85,12 @@ from .boards import (
 from .comparison import compare_with_previous
 from .components import (
     SOURCE_KEYS,
-    available_widgets,
     cell_source,
     component_types,
     describe_types,
     get_component_type,
     is_inline,
+    widget_choices,
     widget_refused,
 )
 from .datasets import visible_entries
@@ -741,9 +741,7 @@ class DashboardPageView(LoginRequiredMixin, TemplateView):
                 for m in metrics.order_by("name")
                 if may_read(m, user)
             ],
-            "widgets": [{"key": k, "title": w.title} for k, w, _i in available_widgets()]
-            if getattr(user, "is_staff", False)
-            else [],
+            "widgets": widget_choices() if getattr(user, "is_staff", False) else [],
         }
 
 

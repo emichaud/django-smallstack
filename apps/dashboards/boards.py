@@ -445,8 +445,11 @@ def sync_widgets(dashboard: Dashboard) -> list[str]:
     whose widget is no longer registered — its app was disabled — leaves the
     layout and ``offered_widgets`` both, so it returns if the app does. New
     cards fill rows left to right below the existing ones, sized by the
-    widget's ``span`` (3 columns each, the old four-across grid)."""
+    widget's ``default_size``, else its ``span`` (3 columns each, the old
+    four-across grid) by 2 rows."""
     from django.db import transaction
+
+    from apps.smallstack.displays import widget_size
 
     from .components import available_widgets
 
@@ -471,11 +474,11 @@ def sync_widgets(dashboard: Dashboard) -> list[str]:
         bottom = max((int(c.get("y") or 0) + int(c.get("h") or 1) for c in layout), default=0)
         x, y, row_h = 0, bottom, 0
         for key, widget in fresh:
-            w = min(12, 3 * max(1, int(getattr(widget, "span", 1) or 1)))
+            w, h = widget_size(widget)
             if x + w > 12:
                 x, y, row_h = 0, y + row_h, 0
-            layout.append({"type": "widget", "x": x, "y": y, "w": w, "h": 2, "options": {"widget": key}})
-            x, row_h = x + w, max(row_h, 2)
+            layout.append({"type": "widget", "x": x, "y": y, "w": w, "h": h, "options": {"widget": key}})
+            x, row_h = x + w, max(row_h, h)
             offered.append(key)
         board.layout = layout
         board.offered_widgets = offered

@@ -19,7 +19,7 @@ The data layer (`get_widget_contexts()`) collects from both, sorts by `order`, a
 
 - **The `/smallstack/` page** — with `apps.dashboards` installed (the default) it is a **grid dashboard**: the system `Dashboard` row `system_key="smallstack"`, one `widget` card per published widget. Staff drag, resize and remove cards (**Edit layout**), and can add metric, trend and note cards next to them. See [The `/smallstack/` page is a dashboard](#the-smallstack-page-is-a-dashboard) below
 - **Fallback view** — without `apps.dashboards`, `SmallStackDashboardView` renders the fixed grid `smallstack/dashboard.html`
-- **Any dashboard** — the `widget` card type ("App card" in Add card) places one widget on any dashboard (staff only)
+- **Any dashboard** — the `widget` card type ("App card" in Add card) places one widget on any dashboard (staff only). Its pickers list the project's own widgets under *This app's widgets*, then SmallStack's under *SmallStack system widgets* (`components.widget_choices()`, split on `template_hygiene.FRAMEWORK_APPS`), as the dataset pickers do. A widget with `on_dashboard = False` is offered there but never placed on `/smallstack/`
 - **Mixin** — `DashboardWidgetsMixin` adds `widgets` to any template context
 - **API** — `GET /api/dashboard/widgets/` serves widget data as JSON
 
@@ -78,7 +78,10 @@ class ActivityDashboardWidget(DashboardWidget):
 | `title` | `str` | `""` | Label shown above the headline |
 | `icon` | `str` | `""` | SVG icon markup (trusted HTML, `mark_safe`'d automatically) |
 | `order` | `int` | `50` | Sort order among widgets (lower = earlier) |
-| `widget_type` | `str` | `"card"` | Template partial selector — today only `"card"` ships |
+| `widget_type` | `str` | `"card"` | The whole card's template, `smallstack/widgets/<type>.html`. `"card"`, the only one shipped, is the standard frame (border, status edge, icon, title, link) |
+| `template_name` | `str` | `""` | **The card's body**, rendered inside that frame in place of the headline and detail. See [A widget with its own card](#a-widget-with-its-own-card) |
+| `media` | `dict` | `{}` | `{"css": [...], "js": [...]}` static files the body needs, loaded on every dashboard page with the card types' (`component_media()`) |
+| `default_size` | `tuple[int, int] \| None` | `None` | `(columns, rows)` a new grid card of this widget takes (Add card, and the `/smallstack/` board's placement). `None`: 3 columns per `span`, 2 rows |
 | `span` | `int` | `1` | CSS grid column span (1 = normal, 2 = wide) |
 | `url_name` | `str \| None` | `None` | Named URL; overrides the auto-resolved Explorer list URL |
 | `url_kwargs` | `dict \| None` | `None` | kwargs for `reverse()` |
@@ -88,7 +91,7 @@ class ActivityDashboardWidget(DashboardWidget):
 
 ### Methods
 
-- **`get_data(model_class=None) -> dict`** — Return widget data. For `widget_type="card"`, the template reads `headline`, `detail`, and optionally `status`: `ok` / `warning` / `error` (or the same three as `operational` / `degraded` / `down`), which colour the headline and the card's edge. Any additional keys (e.g. `extra`) pass through to the API but are ignored by the HTML template. For Explorer widgets, `model_class` is the registered Django model. For standalone widgets, it is `None`.
+- **`get_data(model_class=None) -> dict`** — Return widget data. For `widget_type="card"`, the template reads `headline`, `detail`, and optionally `status`: `ok` / `warning` / `error` (or the same three as `operational` / `degraded` / `down`), which colour the headline and the card's edge. Any additional keys (e.g. `extra`) pass through to the API but are ignored by the standard card; a widget with its own `template_name` reads whatever it returns. For Explorer widgets, `model_class` is the registered Django model. For standalone widgets, it is `None`.
 
 - **`get_api_extras(model_class=None) -> dict | None`** — Return additional API-only data merged into the serialized widget's `data` field. Override only when extras are expensive to compute and you don't want them slowing HTML renders. Default returns `None`.
 
@@ -98,6 +101,60 @@ Priority:
 1. `widget.url_name` (with `widget.url_kwargs`) if set
 2. Explorer model list URL (e.g. `/explorer/monitoring/heartbeat/`) for Explorer widgets
 3. `None` (card renders unlinked)
+
+## A widget with its own card
+
+The standard card is a headline and a detail line. A widget that needs more — a
+top-N list, a small table, a sparkline, a status grid — brings its own body and
+keeps the framework's frame:
+
+```python
+class RushingLeadersWidget(DashboardWidget):
+    title = "Rushing leaders"
+    icon = '<svg ...>...</svg>'
+    template_name = "myapp/widgets/leaders.html"   # the body, inside the standard frame
+    media = {"css": ["myapp/css/widgets.css"]}     # loaded on dashboard pages
+    default_size = (4, 4)                          # a new card is 4 columns by 4 rows
+    on_dashboard = False                           # offered in Add card, not placed on /smallstack/
+
+    def get_data(self, model_class=None):
+        leaders = [...]
+        return {
+            "headline": leaders[0]["value"] if leaders else "—",   # still the widget's one number
+            "detail": "Top five this season",
+            "rows": leaders,                                    # whatever the template reads
+        }
+```
+
+```django
+{# myapp/templates/myapp/widgets/leaders.html — context: widget, data, ctx #}
+<ol class="myapp-leaders">
+  {% for row in data.rows %}<li>{{ row.label }} <span>{{ row.value }}</span></li>{% endfor %}
+</ol>
+```
+
+- **The frame stays SmallStack's.** Border, status edge (`data.status`), icon, title,
+  link, `visible_to`, a card's colour rules and the restricted/error states work as for
+  any widget, on every palette. The body goes in `<div class="widget-body">`.
+- **The frame is a link** (to `url_name` or the Explorer list), so the body holds no
+  links or buttons of its own.
+- **Keep returning a `headline`.** It's the widget's one number: colour rules
+  (`widget_number`), `GET /api/dashboard/widgets/` and dashboard snapshots read it,
+  not your template.
+- **A template that fails** shows "This widget failed to load." in the card and logs a
+  warning (`render_widget_body`); the page and the other cards carry on.
+- **Theme tokens only** in the body's CSS (`var(--card-bg)`, `var(--primary)`,
+  `var(--body-quiet-color)`…), never hex — see `modern-dark-theme.md`. Scripts go in
+  `media["js"]`, never inline (the CSP refuses them).
+- **Where it renders:** grid dashboards (the `/smallstack/` board, any saved dashboard,
+  `card_preview`) and the fallback `smallstack/dashboard.html`, through the
+  `{% widget_body ctx as body %}` tag in `smallstack/widgets/card.html`.
+
+**A widget or a card type?** A card type (`register_component_type`, `card-types.md`)
+is a design over *any* dataset or metric: people pick the data and options in the
+builder, and agents can author it. A widget is one card an app owns end to end — its
+own query, its own markup, no options. Try a new design as a widget; promote it to a
+card type when people want it over their own data.
 
 ## Registering Widgets
 
@@ -322,7 +379,7 @@ def my_view(request):
 
 ## Extensibility
 
-- **`widget_type` + `span`** — future widget types (chart, table, status grid) add a new subclass plus a template partial at `smallstack/widgets/{widget_type}.html`. No protocol change needed. `span` lets any widget claim more grid columns.
+- **`template_name` + `media`** — a widget brings its own card body inside the standard frame ([A widget with its own card](#a-widget-with-its-own-card)). `widget_type` still swaps the whole card for `smallstack/widgets/{widget_type}.html`, frame included. `span` and `default_size` let a widget claim more of the grid.
 - **Group/app/model filtered views** — `get_widget_contexts()` already supports these filters. URLs and templates can be added without touching the widget classes.
 
 ## Best Practices

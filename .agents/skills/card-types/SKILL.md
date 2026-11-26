@@ -26,6 +26,11 @@ are registered the same way in
 Read `dashboards.md` first for what a metric, a card's source, a dashboard and the
 builder are. This file is the contract.
 
+**Not every card needs a type.** A card one app owns end to end — its own query, its
+own markup, no options for people to set — is a `DashboardWidget` with its own
+`template_name` (`dashboard-widgets.md`, *A widget with its own card*). Reach for a
+type when the design should work over any dataset or metric.
+
 ## In one screen
 
 ```python

@@ -388,12 +388,15 @@ def describe_types(user: Any = None) -> list[dict[str, Any]]:
 
 
 def component_media() -> dict[str, list[str]]:
-    """Every registered card type's static files, de-duplicated, in
-    registration order — what ``{% component_media %}`` writes out."""
+    """Every registered card type's static files, then every widget's
+    (``DashboardWidget.media``), de-duplicated, in registration order — what
+    ``{% component_media %}`` writes out."""
     out: dict[str, list[str]] = {"css": [], "js": []}
-    for ct in component_types():
+    sources = [ct.media for ct in component_types()]
+    sources += [getattr(w, "media", None) or {} for _k, w, _i in available_widgets()]
+    for media in sources:
         for kind in ("css", "js"):
-            for path in ct.media.get(kind, []):
+            for path in media.get(kind, []):
                 if path not in out[kind]:
                     out[kind].append(path)
     return out
@@ -425,7 +428,7 @@ def components_payload(user: Any) -> dict[str, Any]:
         },
     }
     if getattr(user, "is_staff", False):
-        payload["widgets"] = [{"key": k, "title": w.title} for k, w, _i in available_widgets()]
+        payload["widgets"] = widget_choices()
     return payload
 
 
@@ -1179,6 +1182,38 @@ def available_widgets() -> list[tuple[str, Any, Any]]:
         pass
     for widget in get_standalone_widgets():
         out.append((_widget_key(widget), widget, None))
+    return out
+
+
+#: The picker headings over widgets, as ``grouped_dataset_choices`` heads datasets.
+APP_WIDGETS = "This app's widgets"
+SYSTEM_WIDGETS = "SmallStack system widgets"
+
+
+def is_framework_widget(widget: Any) -> bool:
+    """Whether *widget* ships with SmallStack (its class lives in one of the
+    framework's own apps) rather than with the project built on it."""
+    from apps.smallstack.template_hygiene import FRAMEWORK_APPS
+
+    parts = type(widget).__module__.split(".")
+    return len(parts) > 1 and parts[0] == "apps" and parts[1] in FRAMEWORK_APPS
+
+
+def widget_choices() -> list[dict[str, Any]]:
+    """``[{key, title, group, size}]`` for the widget pickers: the project's
+    own widgets first, then SmallStack's. ``group`` is the heading to list it
+    under, or ``""`` when every widget is one kind (a heading over everything
+    says nothing); ``size`` is ``{w, h}`` for a new card (``widget_size``)."""
+    from apps.smallstack.displays import widget_size
+
+    found = [(k, w, is_framework_widget(w)) for k, w, _i in available_widgets()]
+    found.sort(key=lambda item: item[2])  # stable: each kind keeps its order
+    grouped = len({system for _k, _w, system in found}) > 1
+    out = []
+    for k, w, system in found:
+        cols, rows = widget_size(w)
+        group = (SYSTEM_WIDGETS if system else APP_WIDGETS) if grouped else ""
+        out.append({"key": k, "title": w.title, "group": group, "size": {"w": cols, "h": rows}})
     return out
 
 

@@ -584,16 +584,24 @@
                     var fill = function (pairs) {
                         input.textContent = "";
                         if (!spec.required || spec.type !== "choice") input.appendChild(el("option", { value: "" }, spec.type === "choice" ? "—" : "Choose…"));
+                        // A third item is a heading to list the choice under
+                        // (the widgets: this app's, then SmallStack's).
+                        var headings = {};
                         pairs.forEach(function (c) {
                             var pair = Array.isArray(c) ? c : [c, c];
                             var o = el("option", { value: pair[0] }, pair[1]);
                             if (String(pair[0]) === String(value == null ? "" : value)) o.selected = true;
-                            input.appendChild(o);
+                            if (pair[2]) {
+                                if (!headings[pair[2]]) input.appendChild(headings[pair[2]] = el("optgroup", { label: pair[2] }));
+                                headings[pair[2]].appendChild(o);
+                            } else {
+                                input.appendChild(o);
+                            }
                         });
                         if (input.value && options[spec.name] == null) { options[spec.name] = input.value; writeOptions(); }
                     };
                     if (spec.type === "choice") fill(spec.choices || []);
-                    else if (spec.type === "widget") fill((data.widgets || []).map(function (w) { return [w.key, w.title]; }));
+                    else if (spec.type === "widget") fill((data.widgets || []).map(function (w) { return [w.key, w.title, w.group]; }));
                     else columnsFor(function (cols) { fill(cols); schedulePreview(); });
                 } else if (spec.type === "boolean") {
                     input = el("input", { id: id, type: "checkbox" });

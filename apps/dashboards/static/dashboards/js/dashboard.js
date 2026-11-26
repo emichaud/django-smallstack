@@ -194,7 +194,19 @@
             builderNote.querySelector("[data-designs]").textContent = builderOnly.join(", ");
         }
         (editor.metrics || []).forEach(function (m) { option(metricSel, m.key, m.name + "  (" + m.key + ")"); });
-        (editor.widgets || []).forEach(function (w) { option(widgetSel, w.key, w.title); });
+        // Widgets under their headings (this app's, then SmallStack's) when
+        // the list holds both kinds; each brings the size a new card takes.
+        var widgetGroups = {}, widgetSizes = {};
+        (editor.widgets || []).forEach(function (w) {
+            widgetSizes[w.key] = w.size;
+            if (!w.group) { option(widgetSel, w.key, w.title); return; }
+            if (!widgetGroups[w.group]) {
+                widgetGroups[w.group] = document.createElement("optgroup");
+                widgetGroups[w.group].label = w.group;
+                widgetSel.appendChild(widgetGroups[w.group]);
+            }
+            option(widgetGroups[w.group], w.key, w.title);
+        });
 
         function field(name) { return form.querySelectorAll('[data-for="' + name + '"]'); }
         function toggle(name, on) { field(name).forEach(function (el) { el.hidden = !on; }); }
@@ -455,7 +467,11 @@
                 cell.options.dimension = data.get("dimension");
                 cell.options.limit = parseInt(data.get("limit") || "5", 10);
             }
-            if (t.type === "widget") cell.options.widget = data.get("widget");
+            if (t.type === "widget") {
+                cell.options.widget = data.get("widget");
+                var wsize = widgetSizes[cell.options.widget];
+                if (wsize) { cell.w = wsize.w; cell.h = wsize.h; }
+            }
             if (t.type === "text") cell.options.markdown = data.get("markdown") || "";
             readOptions(cell);
             dialog.close();

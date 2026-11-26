@@ -466,3 +466,12 @@ def ago(value: Any) -> str:
         if seconds < limit:
             return "just now" if label is None else f"{seconds // unit}{label} ago"
     return f"{seconds // 31557600}y ago"
+
+
+@register.simple_tag(takes_context=True)
+def widget_body(context: template.Context, ctx: dict[str, Any]) -> str:
+    """A widget card's own body (``DashboardWidget.template_name``), or ``""``
+    for the standard headline and detail. ``{% widget_body ctx as body %}``."""
+    from apps.smallstack.displays import render_widget_body
+
+    return render_widget_body(ctx, request=context.get("request"))

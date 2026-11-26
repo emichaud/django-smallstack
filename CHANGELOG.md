@@ -9,6 +9,16 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+### Upgrading from 0.33.3
+- No changes to a downstream build: no migrations, settings or entrypoint changes. A project that edited `smallstack/widgets/card.html` should take this version's (it now loads `theme_tags` and renders a widget's own body).
+
+### Added
+- **A widget can bring its own card.** `DashboardWidget.template_name` renders the card's body inside the standard frame (border, status edge, icon, title, link), with `widget` and `data` in its context, in place of the headline and detail: a top-N list, a small table, a sparkline. `media` loads its CSS/JS on dashboard pages with the card types', and `default_size` sets the columns and rows a new card takes (Add card, and placement on `/smallstack/`). A body that fails to render says so in the card instead of breaking the page. See *A widget with its own card* in `dashboard-widgets.md`.
+
+### Changed
+- **Widget pickers list the project's widgets first, then SmallStack's**, under *This app's widgets* and *SmallStack system widgets*, in the component builder and the dashboard's *Add card* dialog, as the dataset pickers do (`components.widget_choices()`).
+- **A dashboard's widget card follows `widget_type`**, as the fallback `/smallstack/` page always did, instead of always drawing `smallstack/widgets/card.html`.
+
 ## [0.33.3] - 2026-11-25
 
 ### Upgrading from 0.33.2

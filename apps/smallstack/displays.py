@@ -958,7 +958,17 @@ class DashboardWidget:
         title: Label shown above the headline.
         icon: SVG icon markup (trusted HTML).
         order: Sort order among widgets (lower = earlier).
-        widget_type: Template partial selector. Today only "card" is shipped.
+        widget_type: The whole card's template, smallstack/widgets/<type>.html.
+               "card" (the only one shipped) is the standard frame: border,
+               status edge, icon, title and link.
+        template_name: The card's body, rendered inside that frame in place of
+               the headline and detail, with ``widget`` and ``data`` (what
+               get_data returned) in its context. Empty: headline and detail.
+               The frame is a link, so the body holds no links of its own.
+        media: Static files the body needs, {"css": [...], "js": [...]},
+               loaded on every dashboard page as a card type's are.
+        default_size: (columns, rows) a new card of this widget takes on a
+               grid dashboard. None: 3 columns per span, 2 rows.
         span: CSS grid column span (1 = normal, 2 = wide).
         url_name: Overrides auto-resolved Explorer list URL.
         url_kwargs: kwargs for URL reversal.
@@ -974,6 +984,9 @@ class DashboardWidget:
     icon: str = ""
     order: int = 50
     widget_type: str = "card"
+    template_name: str = ""
+    media: dict[str, list[str]] = {}
+    default_size: tuple[int, int] | None = None
     span: int = 1
     url_name: str | None = None
     url_kwargs: dict | None = None
@@ -992,8 +1005,12 @@ class DashboardWidget:
         For widget_type="card", the template reads:
             {"headline": str, "detail": str, "status"?: str}
 
+        A widget with its own ``template_name`` reads whatever it returns
+        here, but should still return a ``headline``: it's the widget's one
+        number for colour rules, the API and dashboard snapshots.
+
         Any additional keys are passed through to the API (GET
-        /api/dashboard/widgets/) but ignored by the HTML template.
+        /api/dashboard/widgets/) but ignored by the standard card.
         This lets you surface richer, machine-readable data to API
         consumers (raw counts, timestamps, trends, thresholds, etc.)
         without affecting the card UI.
@@ -1045,3 +1062,36 @@ def widget_data(widget: "DashboardWidget", user: Any = None, model_class: type |
     except (TypeError, ValueError):
         pass
     return widget.get_data(**kwargs)
+
+
+def widget_size(widget: "DashboardWidget") -> tuple[int, int]:
+    """(columns, rows) a new grid card of *widget* takes: its ``default_size``
+    held to the grid (1-12 each), else 3 columns per ``span`` by 2 rows."""
+    size = getattr(widget, "default_size", None)
+    if size:
+        try:
+            w, h = (int(v) for v in size)
+            return max(1, min(12, w)), max(1, min(12, h))
+        except (TypeError, ValueError):
+            pass
+    return min(12, 3 * max(1, int(getattr(widget, "span", 1) or 1))), 2
+
+
+def render_widget_body(ctx: dict[str, Any], request: HttpRequest | None = None) -> str:
+    """The body a widget brings (``template_name``), rendered with ``widget``,
+    ``data`` and the card's ``ctx``; ``""`` for a widget without one. A body
+    that fails to render says so in the card instead of breaking the page."""
+    import logging
+
+    from django.template.loader import render_to_string
+    from django.utils.html import format_html
+
+    widget = ctx.get("widget")
+    name = getattr(widget, "template_name", "")
+    if not name:
+        return ""
+    try:
+        return render_to_string(name, {"widget": widget, "data": ctx.get("data") or {}, "ctx": ctx}, request=request)
+    except Exception:  # noqa: BLE001 — one widget's template never takes the page down
+        logging.getLogger(__name__).warning("dashboard widget body %s failed", name, exc_info=True)
+        return format_html('<div class="widget-detail">{}</div>', "This widget failed to load.")
