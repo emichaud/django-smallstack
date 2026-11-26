@@ -9,6 +9,8 @@ Breaking-change migration recipes live in [`UPGRADING.md`](UPGRADING.md).
 
 ## [Unreleased]
 
+## [0.33.4] - 2026-11-26
+
 ### Upgrading from 0.33.3
 - No changes to a downstream build: no migrations, settings or entrypoint changes. A project that edited `smallstack/widgets/card.html` should take this version's (it now loads `theme_tags` and renders a widget's own body).
 
@@ -3646,7 +3648,8 @@ Condensed highlights of the v0.11 series (see git history for per-patch detail):
 See the git tag history (`git tag`) and `ai_cowork/audit_history/` for the full record of the
 v0.8–v0.10 API-server, modern-dark-theme, search, MCP, and Postgres eras.
 
-[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.3...HEAD
+[Unreleased]: https://github.com/emichaud/django-smallstack/compare/v0.33.4...HEAD
+[0.33.4]: https://github.com/emichaud/django-smallstack/compare/v0.33.3...v0.33.4
 [0.33.3]: https://github.com/emichaud/django-smallstack/compare/v0.33.2...v0.33.3
 [0.33.2]: https://github.com/emichaud/django-smallstack/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/emichaud/django-smallstack/compare/v0.33.0...v0.33.1
