@@ -164,12 +164,18 @@ def test_pickers_list_the_projects_widgets_before_smallstacks(widgets):
     widgets.append(ProjectWidget())
     assert is_framework_widget(PlainWidget()) and not is_framework_widget(ProjectWidget())
     choices = widget_choices()
-    assert choices[0]["title"] == "Project" and choices[0]["group"] == APP_WIDGETS
-    assert {c["group"] for c in choices[1:]} == {SYSTEM_WIDGETS}
-    assert choices[0]["size"] == {"w": 3, "h": 2}
+    groups = [c["group"] for c in choices]
+    assert set(groups) == {APP_WIDGETS, SYSTEM_WIDGETS}
+    assert groups == sorted(groups, key=lambda g: g != APP_WIDGETS)  # the project's first (a downstream may add more)
+    project = next(c for c in choices if c["title"] == "Project")
+    assert project["group"] == APP_WIDGETS and project["size"] == {"w": 3, "h": 2}
 
 
-def test_one_kind_of_widget_needs_no_headings(widgets):
+def test_one_kind_of_widget_needs_no_headings(monkeypatch):
+    from apps.dashboards import components
+
+    framework_only = [item for item in components.available_widgets() if is_framework_widget(item[1])]
+    monkeypatch.setattr(components, "available_widgets", lambda: framework_only)
     assert {c["group"] for c in widget_choices()} == {""}
 
 
